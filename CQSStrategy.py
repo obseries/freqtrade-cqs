@@ -1,0 +1,375 @@
+import logging
+import json
+from datetime import datetime
+
+import numpy as np  # noqa
+import pandas as pd  # noqa
+import requests
+from pandas import DataFrame
+import os.path
+
+from freqtrade.persistence import Trade
+from freqtrade.strategy import (BooleanParameter, CategoricalParameter, DecimalParameter,
+                                IStrategy, IntParameter)
+
+
+class CQSStrategy(IStrategy):
+    logger = logging.getLogger(__name__)
+
+    cqs_multiplier_loop = 8
+    cqs_current_loop_number = 8
+    cqs_json_file = ''
+
+    cqs_trades = []
+
+    # Strategy interface version - allow new iterations of the strategy interface.
+    # Check the documentation or the Sample strategy to get the latest version.
+    INTERFACE_VERSION = 3
+
+    # Can this strategy go short?
+    can_short: bool = False
+
+    # Minimal ROI designed for the strategy.
+    # This attribute will be overridden if the config file contains "minimal_roi".
+    minimal_roi = {
+        "10080": 0.005,  # dopo 7 giorni va chiuso se in guadagno
+        "4320": 0.15,  # dopo 3 giorni
+        "0": 100
+    }
+
+    # Optimal stoploss designed for the strategy.
+    # This attribute will be overridden if the config file contains "stoploss".
+    stoploss = -0.20
+
+    use_custom_stoploss = True
+
+    # Trailing stoploss
+    trailing_stop = False
+    # trailing_only_offset_is_reached = False
+    # trailing_stop_positive = 0.01
+    # trailing_stop_positive_offset = 0.0  # Disabled / not configured
+
+    # Optimal timeframe for the strategy.
+    timeframe = '1m'
+
+    # Run "populate_indicators()" only for new candle.
+    process_only_new_candles = True
+
+    # These values can be overridden in the config.
+    use_exit_signal = True
+    exit_profit_only = False
+    ignore_roi_if_entry_signal = False
+
+    # Number of candles the strategy requires before producing valid signals
+    startup_candle_count: int = 1
+
+    # Optional order type mapping.
+    order_types = {
+        'entry': 'limit',
+        'exit': 'limit',
+        'stoploss': 'market',
+        'stoploss_on_exchange': False
+    }
+
+    # Optional order time in force.
+    order_time_in_force = {
+        'entry': 'gtc',
+        'exit': 'gtc'
+    }
+
+    plot_config = {
+        'main_plot': {
+            'tema': {},
+            'sar': {'color': 'white'},
+        },
+        'subplots': {
+            "MACD": {
+                'macd': {'color': 'blue'},
+                'macdsignal': {'color': 'orange'},
+            },
+            "RSI": {
+                'rsi': {'color': 'red'},
+            }
+        }
+    }
+
+    def version(self) -> str:
+        """
+        Returns version of the strategy.
+        """
+        return "0.1"
+
+    def bot_start(self, **kwargs) -> None:
+        """
+        Called only once after bot instantiation.
+        :param **kwargs: Ensure to keep this here so updates to this won't break your strategy.
+        """
+
+        self.cqs_json_file = str(self.config['user_data_dir']) + '/cqs.json'
+
+        if self.config['runmode'].value in ('live', 'dry_run'):
+            # Assign this to the class by using self.*
+            # can then be used by populate_* methods
+
+            # cerca se esiste il file cqs.json
+            file_exists = os.path.exists(self.cqs_json_file)
+            if not file_exists:
+                # se non esiste: inizializzo
+                self.save_cqs_trade()
+
+            # se esiste parsifico il file
+            if file_exists:
+                with open(self.cqs_json_file) as json_file:
+                    self.cqs_trades = json.load(json_file)
+
+
+
+
+    def bot_loop_start(self, **kwargs) -> None:
+        """
+        Called at the start of the bot iteration (one loop).
+        Might be used to perform pair-independent tasks
+        (e.g. gather some remote resource for comparison)
+        :param **kwargs: Ensure to keep this here so updates to this won't break your strategy.
+        """
+        if self.config['runmode'].value in ('live', 'dry_run'):
+            self.logger.info("called bot_loop_start")
+
+        # call remote service every
+        if self.cqs_current_loop_number % self.cqs_multiplier_loop == 0:
+            self.logger.info("Call CQS Service %s", self.cqs_current_loop_number)
+            self.cqs_current_loop_number = 0
+
+            remote_data = requests.get('https://api.cryptoqualitysignals.com/v1/getSignal/?api_key=FREE&interval=15')
+            #remote_data = requests.get(
+            #    'https://44dbadcb-bff3-4063-9910-6609c617b9d8.mock.pstmn.io/v1/getSignal/?api_key=FREE&interval=15')
+
+            data = json.loads(remote_data.text)
+            self.logger.info(f"Called service message: '{data['message']}' count: '{data['count']}'")
+
+            for signal in data['signals']:
+                self.logger.info(f"id '{signal['id']}' coin: '{signal['coin']}' currency: '{signal['currency']}' ")
+                # normalizzo la currency su USDT
+                currency = signal['currency']
+                if currency == 'BUSD':
+                    currency = 'USDT'
+
+                pair = signal['coin'] + '/' + currency
+                # verifico che sia nella lista delle pair trattate
+                has_to_add = False
+                for available_pair in self.dp.available_pairs:
+                    if pair == available_pair[0]:
+                        # e' nella lista dei pair trattati
+                        has_to_add = True
+                        # ora verifico di non avere ancora questo trade in lista
+                        for trade in self.cqs_trades:
+                            if trade['id'] == signal['id']:
+                                has_to_add = False
+
+                if has_to_add:
+                    signal['pair'] = pair
+                    self.cqs_trades.append(signal)
+
+            self.save_cqs_trade()
+
+        self.cqs_current_loop_number = self.cqs_current_loop_number + 1
+
+        ## TODO cancellare i trade che dopo 15 minuti non sono stati aperti
+
+    def informative_pairs(self):
+        """
+        Define additional, informative pair/interval combinations to be cached from the exchange.
+        These pair/interval combinations are non-tradeable, unless they are part
+        of the whitelist as well.
+        For more information, please consult the documentation
+        :return: List of tuples in the format (pair, interval)
+            Sample: return [("ETH/USDT", "5m"),
+                            ("BTC/USDT", "15m"),
+                            ]
+        """
+        return []
+
+    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Adds several different TA indicators to the given DataFrame
+
+        Performance Note: For the best performance be frugal on the number of indicators
+        you are using. Let uncomment only the indicator you are using in your strategies
+        or your hyperopt configuration, otherwise you will waste your memory and CPU usage.
+        :param dataframe: Dataframe with data from the exchange
+        :param metadata: Additional information, like the currently traded pair
+        :return: a Dataframe with all mandatory indicators for the strategies
+        """
+
+        self.logger.info("called populate_indicators %s", metadata)
+
+        cqstrade = self.get_cqs_trade_by_pair(metadata['pair'])
+
+        # e' vuoto se: cqstrade == {}
+        if cqstrade == {}:
+            return
+
+        dataframe['buy_start'] = float(cqstrade['buy_start'])
+        dataframe['buy_end'] = float(cqstrade['buy_end'])
+        dataframe['target1'] = float(cqstrade['target1'])
+        dataframe['target2'] = float(cqstrade['target2'])
+        dataframe['target3'] = float(cqstrade['target3'])
+        dataframe['stop_loss'] = float(cqstrade['stop_loss'])
+
+        # Prendi esempi da https://raw.githubusercontent.com/freqtrade/freqtrade/develop/freqtrade/templates/sample_strategy.py
+
+        # first check if dataprovider is available
+        if self.dp:
+            if self.dp.runmode.value in ('live', 'dry_run'):
+                ob = self.dp.orderbook(metadata['pair'], 1)
+                dataframe['best_bid'] = ob['bids'][0][0]
+                dataframe['best_ask'] = ob['asks'][0][0]
+
+        return dataframe
+
+    def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Based on TA indicators, populates the entry signal for the given dataframe
+        :param dataframe: DataFrame
+        :param metadata: Additional information, like the currently traded pair
+        :return: DataFrame with entry columns populated
+        """
+        cqstrade = self.get_cqs_trade_by_pair(metadata['pair'])
+        # e' vuoto se: cqstrade == {}
+        if cqstrade == {}:
+            return
+
+        dataframe.loc[
+            (
+                    (dataframe['best_ask'] <= dataframe['buy_end']) &
+                    (dataframe['best_ask'] >= dataframe['buy_start'])
+            ),
+            'enter_long'] = 1
+
+        return dataframe
+
+    def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Based on TA indicators, populates the exit signal for the given dataframe
+        :param dataframe: DataFrame
+        :param metadata: Additional information, like the currently traded pair
+        :return: DataFrame with exit columns populated
+        """
+
+        cqstrade = self.get_cqs_trade_by_pair(metadata['pair'])
+        # e' vuoto se: cqstrade == {}
+        if cqstrade == {}:
+            return
+
+        dataframe.loc[
+            (
+                    dataframe['best_bid'] >= dataframe['target3']
+            ),
+            'exit_long'] = 1
+
+        return dataframe
+
+    def custom_stoploss(self, pair: str, trade: 'Trade', current_time: datetime,
+                        current_rate: float, current_profit: float, **kwargs) -> float:
+        """
+        Custom stoploss logic, returning the new distance relative to current_rate (as ratio).
+        e.g. returning -0.05 would create a stoploss 5% below current_rate.
+        The custom stoploss can never be below self.stoploss, which serves as a hard maximum loss.
+
+        For full documentation please go to https://www.freqtrade.io/en/latest/strategy-advanced/
+
+        When not implemented by a strategy, returns the initial stoploss value
+        Only called when use_custom_stoploss is set to True.
+
+        :param pair: Pair that's currently analyzed
+        :param trade: trade object.
+        :param current_time: datetime object, containing the current datetime
+        :param current_rate: Rate, calculated based on pricing settings in exit_pricing.
+        :param current_profit: Current profit (as ratio), calculated based on current_rate.
+        :param **kwargs: Ensure to keep this here so updates to this won't break your strategy.
+        :return float: New stoploss value, relative to the current rate
+        """
+        result = 1
+        cqstrade = self.get_cqs_trade_by_pair(pair)
+        # e' vuoto se: cqstrade == {}
+        if cqstrade == {}:
+            return result
+
+        if trade:
+            relative_sl = None
+            if self.dp:
+                # so we need to get analyzed_dataframe from dp
+                dataframe, _ = self.dp.get_analyzed_dataframe(pair=pair, timeframe=self.timeframe)
+                # only use .iat[-1] in callback methods, never in "populate_*" methods.
+                # see: https://www.freqtrade.io/en/latest/strategy-customization/#common-mistakes-when-developing-strategies
+                last_candle = dataframe.iloc[-1].squeeze()
+                # imposto lo stop loss ufficiale
+                relative_sl = last_candle['stop_loss']
+                # se ho superato il target1, imposto al break even
+                if current_rate > last_candle['target1']:
+                    relative_sl = last_candle['buy_end']
+                if current_rate > last_candle['target2']:
+                    relative_sl = last_candle['target1']
+
+            if relative_sl is not None:
+                # print("custom_stoploss().relative_sl: {}".format(relative_sl))
+                # calculate new_stoploss relative to current_rate
+                new_stoploss = (current_rate - relative_sl) / current_rate
+                # turn into relative negative offset required by `custom_stoploss` return implementation
+                result = - new_stoploss
+
+        return result
+
+    def confirm_trade_exit(self, pair: str, trade: Trade, order_type: str, amount: float,
+                           rate: float, time_in_force: str, exit_reason: str,
+                           current_time: datetime, **kwargs) -> bool:
+        """
+        Called right before placing a regular exit order.
+        Timing for this function is critical, so avoid doing heavy computations or
+        network requests in this method.
+
+        For full documentation please go to https://www.freqtrade.io/en/latest/strategy-advanced/
+
+        When not implemented by a strategy, returns True (always confirming).
+
+        :param pair: Pair for trade that's about to be exited.
+        :param trade: trade object.
+        :param order_type: Order type (as configured in order_types). usually limit or market.
+        :param amount: Amount in base currency.
+        :param rate: Rate that's going to be used when using limit orders
+                     or current rate for market orders.
+        :param time_in_force: Time in force. Defaults to GTC (Good-til-cancelled).
+        :param exit_reason: Exit reason.
+            Can be any of ['roi', 'stop_loss', 'stoploss_on_exchange', 'trailing_stop_loss',
+                           'exit_signal', 'force_exit', 'emergency_exit']
+        :param current_time: datetime object, containing the current datetime
+        :param **kwargs: Ensure to keep this here so updates to this won't break your strategy.
+        :return bool: When True, then the exit-order is placed on the exchange.
+            False aborts the process
+        """
+
+        # TODO verificare che non venga chiamato con le partial exit
+
+        # rimuovere in cqs i trade conclusi
+        self.remove_cqs_trade_by_pair(pair)
+
+        return True
+
+    def save_cqs_trade(self):
+        with open(self.cqs_json_file, 'w') as output_file:
+            json.dump(self.cqs_trades, output_file, indent=4)
+
+    def get_cqs_trade_by_pair(self, pair: str) -> dict:
+        trade = {}
+        for cqstrade in self.cqs_trades:
+            if cqstrade['pair'] == pair:
+                trade = cqstrade
+
+        return trade
+
+    def remove_cqs_trade_by_pair(self, pair: str):
+        trade = {}
+        for cqstrade in self.cqs_trades:
+            if cqstrade['pair'] == pair:
+                self.cqs_trades.remove(cqstrade)
+                self.save_cqs_trade()
