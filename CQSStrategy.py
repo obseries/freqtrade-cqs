@@ -65,10 +65,15 @@ class CQSStrategy(IStrategy):
 
     # Optional order type mapping.
     order_types = {
-        'entry': 'limit',
-        'exit': 'limit',
+        # 'entry': 'limit',
+        'entry': 'market',
+        'exit': 'market',
         'stoploss': 'market',
         'stoploss_on_exchange': False
+    }
+
+    entry_pricing = {
+        'price_side': 'other'
     }
 
     # Optional order time in force.
@@ -122,9 +127,6 @@ class CQSStrategy(IStrategy):
                 with open(self.cqs_json_file) as json_file:
                     self.cqs_trades = json.load(json_file)
 
-
-
-
     def bot_loop_start(self, **kwargs) -> None:
         """
         Called at the start of the bot iteration (one loop).
@@ -141,7 +143,7 @@ class CQSStrategy(IStrategy):
             self.cqs_current_loop_number = 0
 
             remote_data = requests.get('https://api.cryptoqualitysignals.com/v1/getSignal/?api_key=FREE&interval=15')
-            #remote_data = requests.get(
+            # remote_data = requests.get(
             #    'https://44dbadcb-bff3-4063-9910-6609c617b9d8.mock.pstmn.io/v1/getSignal/?api_key=FREE&interval=15')
 
             data = json.loads(remote_data.text)
@@ -207,7 +209,7 @@ class CQSStrategy(IStrategy):
 
         # e' vuoto se: cqstrade == {}
         if cqstrade == {}:
-            return
+            return dataframe
 
         dataframe['buy_start'] = float(cqstrade['buy_start'])
         dataframe['buy_end'] = float(cqstrade['buy_end'])
@@ -237,14 +239,16 @@ class CQSStrategy(IStrategy):
         cqstrade = self.get_cqs_trade_by_pair(metadata['pair'])
         # e' vuoto se: cqstrade == {}
         if cqstrade == {}:
-            return
+            # Deactivated enter long signal to allow the strategy to work correctly
+            dataframe.loc[:, 'enter_long'] = 0
 
-        dataframe.loc[
-            (
-                    (dataframe['best_ask'] <= dataframe['buy_end']) &
-                    (dataframe['best_ask'] >= dataframe['buy_start'])
-            ),
-            'enter_long'] = 1
+        if cqstrade != {}:
+            dataframe.loc[
+                (
+                        (dataframe['best_ask'] <= dataframe['buy_end']) &
+                        (dataframe['best_ask'] >= dataframe['buy_start'])
+                ),
+                'enter_long'] = 1
 
         return dataframe
 
@@ -259,13 +263,15 @@ class CQSStrategy(IStrategy):
         cqstrade = self.get_cqs_trade_by_pair(metadata['pair'])
         # e' vuoto se: cqstrade == {}
         if cqstrade == {}:
-            return
+            # Deactivated enter long signal to allow the strategy to work correctly
+            dataframe.loc[:, 'exit_long'] = 0
 
-        dataframe.loc[
-            (
-                    dataframe['best_bid'] >= dataframe['target3']
-            ),
-            'exit_long'] = 1
+        if cqstrade != {}:
+            dataframe.loc[
+                (
+                        dataframe['best_bid'] >= dataframe['target3']
+                ),
+                'exit_long'] = 1
 
         return dataframe
 
