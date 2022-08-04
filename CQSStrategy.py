@@ -135,11 +135,11 @@ class CQSStrategy(IStrategy):
         :param **kwargs: Ensure to keep this here so updates to this won't break your strategy.
         """
         if self.config['runmode'].value in ('live', 'dry_run'):
-            self.logger.info("called bot_loop_start")
+            self.logger.debug("called bot_loop_start")
 
         # call remote service every
         if self.cqs_current_loop_number % self.cqs_multiplier_loop == 0:
-            self.logger.info("Call CQS Service %s", self.cqs_current_loop_number)
+            self.logger.debug("Call CQS Service %s", self.cqs_current_loop_number)
             self.cqs_current_loop_number = 0
 
             remote_data = requests.get('https://api.cryptoqualitysignals.com/v1/getSignal/?api_key=FREE&interval=15')
@@ -203,7 +203,7 @@ class CQSStrategy(IStrategy):
         :return: a Dataframe with all mandatory indicators for the strategies
         """
 
-        self.logger.info("called populate_indicators %s", metadata)
+        self.logger.debug("called populate_indicators %s", metadata)
 
         cqstrade = self.get_cqs_trade_by_pair(metadata['pair'])
 
