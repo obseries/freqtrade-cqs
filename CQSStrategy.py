@@ -153,7 +153,7 @@ class CQSStrategy(IStrategy):
                 self.logger.info(f"id '{signal['id']}' coin: '{signal['coin']}' currency: '{signal['currency']}' ")
                 # normalizzo la currency su USDT
                 currency = signal['currency']
-                if currency == 'BUSD':
+                if currency == 'BUSD' | currency == 'USD':
                     currency = 'USDT'
 
                 pair = signal['coin'] + '/' + currency
@@ -263,7 +263,7 @@ class CQSStrategy(IStrategy):
         cqstrade = self.get_cqs_trade_by_pair(metadata['pair'])
         # e' vuoto se: cqstrade == {}
         if cqstrade == {}:
-            # Deactivated enter long signal to allow the strategy to work correctly
+            # Deactivated exit long signal to allow the strategy to work correctly
             dataframe.loc[:, 'exit_long'] = 0
 
         if cqstrade != {}:
