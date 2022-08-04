@@ -40,7 +40,7 @@ class CQSStrategy(IStrategy):
 
     position_adjustment_enable = True
     max_entry_position_adjustment = 1
-    
+
     # Optimal stoploss designed for the strategy.
     # This attribute will be overridden if the config file contains "stoploss".
     stoploss = -0.20
@@ -365,7 +365,7 @@ class CQSStrategy(IStrategy):
 
         # massimo entrata dividendo in tre parti
         third_entry = ((buy_end-buy_start)/3) + buy_start
-        if current_rate < third_entry and count_of_entries == 1:
+        if buy_start < current_rate < third_entry and count_of_entries == 1:
             stake_amount = filled_entries[0].cost / 2
             if stake_amount < min_stake:
                 stake_amount = min_stake
