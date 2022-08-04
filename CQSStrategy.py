@@ -153,7 +153,7 @@ class CQSStrategy(IStrategy):
                 self.logger.info(f"id '{signal['id']}' coin: '{signal['coin']}' currency: '{signal['currency']}' ")
                 # normalizzo la currency su USDT
                 currency = signal['currency']
-                if currency == 'BUSD' | currency == 'USD':
+                if currency == 'BUSD' or currency == 'USD':
                     currency = 'USDT'
 
                 pair = signal['coin'] + '/' + currency
