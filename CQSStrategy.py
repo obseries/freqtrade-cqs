@@ -1,6 +1,7 @@
 import logging
 import json
 from datetime import datetime
+from typing import Optional
 
 import numpy as np  # noqa
 import pandas as pd  # noqa
@@ -37,6 +38,9 @@ class CQSStrategy(IStrategy):
         "0": 100
     }
 
+    position_adjustment_enable = True
+    max_entry_position_adjustment = 1
+    
     # Optimal stoploss designed for the strategy.
     # This attribute will be overridden if the config file contains "stoploss".
     stoploss = -0.20
@@ -326,6 +330,55 @@ class CQSStrategy(IStrategy):
 
         return result
 
+    def adjust_trade_position(self, trade: Trade, current_time: datetime,
+                              current_rate: float, current_profit: float,
+                              min_stake: Optional[float], max_stake: float,
+                              **kwargs) -> Optional[float]:
+        """
+        Custom trade adjustment logic, returning the stake amount that a trade should be increased.
+        This means extra buy orders with additional fees.
+        Only called when `position_adjustment_enable` is set to True.
+
+        For full documentation please go to https://www.freqtrade.io/en/latest/strategy-advanced/
+
+        When not implemented by a strategy, returns None
+
+        :param trade: trade object.
+        :param current_time: datetime object, containing the current datetime
+        :param current_rate: Current buy rate.
+        :param current_profit: Current profit (as ratio), calculated based on current_rate.
+        :param min_stake: Minimal stake size allowed by exchange.
+        :param max_stake: Balance available for trading.
+        :param **kwargs: Ensure to keep this here so updates to this won't break your strategy.
+        :return float: Stake amount to adjust your trade
+        """
+
+        cqstrade = self.get_cqs_trade_by_pair(trade.pair)
+        if cqstrade == {}:
+            return None
+
+        filled_entries = trade.select_filled_orders(trade.entry_side)
+        count_of_entries = trade.nr_of_successful_entries
+
+        buy_start = float(cqstrade['buy_start'])
+        buy_end = float(cqstrade['buy_end'])
+
+        # massimo entrata dividendo in tre parti
+        third_entry = ((buy_end-buy_start)/3) + buy_start
+        if current_rate < third_entry and count_of_entries == 1:
+            stake_amount = filled_entries[0].cost / 2
+            if stake_amount < min_stake:
+                stake_amount = min_stake
+
+            return stake_amount
+
+        # TODO inserire le exit parziali impostando uno stake amount negativo al raggiungimento dei target
+        #  ATTENZIONE
+        #  al min_stake, si potrebbe fare che di default imposto uno stake che è almeno 3 volte il minimo utilizzando
+        #  il metodo custom_stake_amount
+
+        return None
+
     def confirm_trade_exit(self, pair: str, trade: Trade, order_type: str, amount: float,
                            rate: float, time_in_force: str, exit_reason: str,
                            current_time: datetime, **kwargs) -> bool:
@@ -355,6 +408,7 @@ class CQSStrategy(IStrategy):
         """
 
         # TODO verificare che non venga chiamato con le partial exit
+        self.logger.warning("NON DEVE ESSERE CHIAMATO PER LE EXIT PARZIALI: reason: %s", exit_reason)
 
         # rimuovere in cqs i trade conclusi
         self.remove_cqs_trade_by_pair(pair)
