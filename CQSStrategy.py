@@ -427,6 +427,9 @@ class CQSStrategy(IStrategy):
             if cqstrade['pair'] == pair:
                 trade = cqstrade
 
+        if trade == {}:
+            self.logger.warning("ATTENZIONE: pair non trovato nel json %s", pair)
+
         return trade
 
     def remove_cqs_trade_by_pair(self, pair: str):
