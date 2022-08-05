@@ -48,8 +48,10 @@ class CQSStrategy(IStrategy):
     use_custom_stoploss = True
 
     # Trailing stoploss
-    trailing_stop = False
-    # trailing_only_offset_is_reached = False
+#    trailing_stop = True
+#    trailing_stop_positive = 0.02
+#    trailing_stop_positive_offset = 0.0
+#    trailing_only_offset_is_reached = True
     # trailing_stop_positive = 0.01
     # trailing_stop_positive_offset = 0.0  # Disabled / not configured
 
@@ -114,7 +116,7 @@ class CQSStrategy(IStrategy):
         :param **kwargs: Ensure to keep this here so updates to this won't break your strategy.
         """
 
-        self.cqs_json_file = str(self.config['user_data_dir']) + '/cqs.json'
+        self.cqs_json_file = str(self.config['user_data_dir']) + '/database/cqs.json'
 
         if self.config['runmode'].value in ('live', 'dry_run'):
             # Assign this to the class by using self.*
