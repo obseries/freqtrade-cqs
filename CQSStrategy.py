@@ -333,6 +333,7 @@ class CQSStrategy(IStrategy):
         cqstrade = self.get_cqs_trade_by_pair(pair)
         # e' vuoto se: cqstrade == {}
         if cqstrade == {}:
+            self.logger.warning("ATTENZIONE: pair non trovato nel json %s", pair)
             return result
 
         if trade:
@@ -491,9 +492,6 @@ class CQSStrategy(IStrategy):
         for cqstrade in self.cqs_trades:
             if cqstrade['pair'] == pair:
                 trade = cqstrade
-
-        if trade == {}:
-            self.logger.warning("ATTENZIONE: pair non trovato nel json %s", pair)
 
         return trade
 
