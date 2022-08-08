@@ -225,17 +225,22 @@ class CQSStrategy(IStrategy):
         dataframe['stop_loss'] = float(cqstrade['stop_loss'])
 
         # Prendi esempi da https://raw.githubusercontent.com/freqtrade/freqtrade/develop/freqtrade/templates/sample_strategy.py
-        cqstrade['target_reach'] = 0
+        if not cqstrade['target_reach']:
+            cqstrade['target_reach'] = 0
+
         high = dataframe.iloc[-1]['high']
         if high > float(cqstrade['target1']) and cqstrade['target_reach'] < 1:
             cqstrade['target_reach'] = 1
             self.save_cqs_trade()
+            self.logger("RAGGIUNTO target_reach: %s per %s", cqstrade['target_reach'], metadata['pair'])
         if high > float(cqstrade['target2']) and cqstrade['target_reach'] < 2:
             cqstrade['target_reach'] = 2
             self.save_cqs_trade()
+            self.logger("RAGGIUNTO target_reach: %s per %s", cqstrade['target_reach'], metadata['pair'])
         if high > float(cqstrade['target3']) and cqstrade['target_reach'] < 3:
             cqstrade['target_reach'] = 3
             self.save_cqs_trade()
+            self.logger("RAGGIUNTO target_reach: %s per %s", cqstrade['target_reach'], metadata['pair'])
 
         dataframe['target_reach'] = cqstrade['target_reach']
 
@@ -353,12 +358,15 @@ class CQSStrategy(IStrategy):
                 if current_rate > last_candle['target2']:
                     relative_sl = last_candle['target1'] * 1.01
                 """
+                # imposto protezione se ha superato il 3,5% ma non e' ancora arrivato al target1
+                if current_rate > 0.035:
+                    relative_sl = last_candle['buy_end'] * 1.004
 
                 # logging
                 if last_candle['target_reach'] >= 1:
-                    self.logger.info("%s target_reach: %s current_profit: %s current_rate: %s target_1: %s target_2: %s"
+                    self.logger.info("%s target_reach: %s current_profit: %s current_rate: %s target_1: %s target_2: %s target_3: %s"
                                      , pair, last_candle['target_reach'], current_profit, current_rate,
-                                     last_candle['target1'], last_candle['target2'])
+                                     last_candle['target1'], last_candle['target2'], last_candle['target3'])
 
             if relative_sl is not None:
                 # print("custom_stoploss().relative_sl: {}".format(relative_sl))
