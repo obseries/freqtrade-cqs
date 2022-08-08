@@ -318,7 +318,7 @@ class CQSStrategy(IStrategy):
                 # imposto lo stop loss ufficiale
                 relative_sl = last_candle['stop_loss']
                 # se ho superato il target1, imposto al break even
-                if current_rate > last_candle['target1'] and current_profit > 0.04:
+                if current_rate > last_candle['target1']:
                     relative_sl = last_candle['buy_end'] * 1.01
                 if current_rate > last_candle['target2']:
                     relative_sl = last_candle['target1'] * 1.01
