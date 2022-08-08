@@ -354,6 +354,10 @@ class CQSStrategy(IStrategy):
                     relative_sl = last_candle['target1'] * 1.01
                 """
 
+                # logging
+                if last_candle['target_reach'] >= 1:
+                    self.logger.info("%s target raggiunto: %s current profit: %s", pair, last_candle['target_reach'], current_profit)
+
             if relative_sl is not None:
                 # print("custom_stoploss().relative_sl: {}".format(relative_sl))
                 # calculate new_stoploss relative to current_rate
