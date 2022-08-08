@@ -48,10 +48,10 @@ class CQSStrategy(IStrategy):
     use_custom_stoploss = True
 
     # Trailing stoploss
-#    trailing_stop = True
-#    trailing_stop_positive = 0.02
-#    trailing_stop_positive_offset = 0.0
-#    trailing_only_offset_is_reached = True
+    #    trailing_stop = True
+    #    trailing_stop_positive = 0.02
+    #    trailing_stop_positive_offset = 0.0
+    #    trailing_only_offset_is_reached = True
     # trailing_stop_positive = 0.01
     # trailing_stop_positive_offset = 0.0  # Disabled / not configured
 
@@ -225,7 +225,7 @@ class CQSStrategy(IStrategy):
         dataframe['stop_loss'] = float(cqstrade['stop_loss'])
 
         # Prendi esempi da https://raw.githubusercontent.com/freqtrade/freqtrade/develop/freqtrade/templates/sample_strategy.py
-        if not cqstrade['target_reach']:
+        if 'target_reach' not in cqstrade:
             cqstrade['target_reach'] = 0
 
         high = dataframe.iloc[-1]['high']
@@ -293,21 +293,21 @@ class CQSStrategy(IStrategy):
         if cqstrade != {}:
             dataframe.loc[
                 (
-                    (dataframe['best_bid'] >= dataframe['target3']) |
-                    (dataframe['target_reach'] == 3)
+                        (dataframe['best_bid'] >= dataframe['target3']) |
+                        (dataframe['target_reach'] == 3)
                 ),
                 ['exit_long', 'exit_tag']] = (1, 'target3')
 
             dataframe.loc[
                 (
-                        (dataframe['best_bid'] <= (dataframe['target1']*1.005)) &
+                        (dataframe['best_bid'] <= (dataframe['target1'] * 1.005)) &
                         (dataframe['target_reach'] == 2)
                 ),
                 ['exit_long', 'exit_tag']] = (1, 'target1')
 
             dataframe.loc[
                 (
-                        (dataframe['best_bid'] <= (dataframe['buy_end']*1.005)) &
+                        (dataframe['best_bid'] <= (dataframe['buy_end'] * 1.005)) &
                         (dataframe['target_reach'] == 1)
                 ),
                 ['exit_long', 'exit_tag']] = (1, 'breakeven')
@@ -348,25 +348,29 @@ class CQSStrategy(IStrategy):
                 dataframe, _ = self.dp.get_analyzed_dataframe(pair=pair, timeframe=self.timeframe)
                 # only use .iat[-1] in callback methods, never in "populate_*" methods.
                 # see: https://www.freqtrade.io/en/latest/strategy-customization/#common-mistakes-when-developing-strategies
-                last_candle = dataframe.iloc[-1].squeeze()
-                # imposto lo stop loss ufficiale
-                relative_sl = last_candle['stop_loss']
-                """ è impostato nelle strategie di exit
-                # se ho superato il target1, imposto al break even
-                if current_rate > last_candle['target1']:
-                    relative_sl = last_candle['buy_end'] * 1.01
-                if current_rate > last_candle['target2']:
-                    relative_sl = last_candle['target1'] * 1.01
-                """
-                # imposto protezione se ha superato il 3,5% ma non e' ancora arrivato al target1
-                if current_rate > 0.035:
-                    relative_sl = last_candle['buy_end'] * 1.004
 
-                # logging
-                if last_candle['target_reach'] and last_candle['target_reach'] >= 1:
-                    self.logger.info("%s target_reach: %s current_profit: %s current_rate: %s target_1: %s target_2: %s target_3: %s"
-                                     , pair, last_candle['target_reach'], current_profit, current_rate,
-                                     last_candle['target1'], last_candle['target2'], last_candle['target3'])
+                # protezione se non e' riuscito a scaricare i dati
+                if dataframe.iloc[-1]:
+                    last_candle = dataframe.iloc[-1].squeeze()
+                    # imposto lo stop loss ufficiale
+                    relative_sl = last_candle['stop_loss']
+                    """ è impostato nelle strategie di exit
+                    # se ho superato il target1, imposto al break even
+                    if current_rate > last_candle['target1']:
+                        relative_sl = last_candle['buy_end'] * 1.01
+                    if current_rate > last_candle['target2']:
+                        relative_sl = last_candle['target1'] * 1.01
+                    """
+                    # imposto protezione se ha superato il 3,5% ma non e' ancora arrivato al target1
+                    if current_rate > 0.035:
+                        relative_sl = last_candle['buy_end'] * 1.004
+
+                    # logging
+                    if last_candle['target_reach'] and last_candle['target_reach'] >= 1:
+                        self.logger.info(
+                            "%s target_reach: %s current_profit: %s current_rate: %s target_1: %s target_2: %s target_3: %s"
+                            , pair, last_candle['target_reach'], current_profit, current_rate,
+                            last_candle['target1'], last_candle['target2'], last_candle['target3'])
 
             if relative_sl is not None:
                 # print("custom_stoploss().relative_sl: {}".format(relative_sl))
@@ -411,7 +415,7 @@ class CQSStrategy(IStrategy):
         buy_end = float(cqstrade['buy_end'])
 
         # massimo entrata dividendo in tre parti
-        third_entry = ((buy_end-buy_start)/3) + buy_start
+        third_entry = ((buy_end - buy_start) / 3) + buy_start
         if buy_start < current_rate < third_entry and count_of_entries == 1:
             stake_amount = filled_entries[0].cost / 2
             if stake_amount < min_stake:
