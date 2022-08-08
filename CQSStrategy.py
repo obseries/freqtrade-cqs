@@ -356,7 +356,9 @@ class CQSStrategy(IStrategy):
 
                 # logging
                 if last_candle['target_reach'] >= 1:
-                    self.logger.info("%s target raggiunto: %s current profit: %s", pair, last_candle['target_reach'], current_profit)
+                    self.logger.info("%s target_reach: %s current_profit: %s current_rate: %s target_1: %s target_2: %s"
+                                     , pair, last_candle['target_reach'], current_profit, current_rate,
+                                     last_candle['target1'], last_candle['target2'])
 
             if relative_sl is not None:
                 # print("custom_stoploss().relative_sl: {}".format(relative_sl))
