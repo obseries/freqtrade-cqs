@@ -302,7 +302,7 @@ class CQSStrategy(IStrategy):
 
             dataframe.loc[
                 (
-                        (dataframe['best_bid'] <= (dataframe['buy_end']*1.005)) |
+                        (dataframe['best_bid'] <= (dataframe['buy_end']*1.005)) &
                         (dataframe['target_reach'] == 1)
                 ),
                 ['exit_long', 'exit_tag']] = (1, 'breakeven')
