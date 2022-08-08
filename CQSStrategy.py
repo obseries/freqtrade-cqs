@@ -363,7 +363,7 @@ class CQSStrategy(IStrategy):
                     relative_sl = last_candle['buy_end'] * 1.004
 
                 # logging
-                if last_candle['target_reach'] >= 1:
+                if last_candle['target_reach'] and last_candle['target_reach'] >= 1:
                     self.logger.info("%s target_reach: %s current_profit: %s current_rate: %s target_1: %s target_2: %s target_3: %s"
                                      , pair, last_candle['target_reach'], current_profit, current_rate,
                                      last_candle['target1'], last_candle['target2'], last_candle['target3'])
