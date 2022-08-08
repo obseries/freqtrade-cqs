@@ -362,7 +362,7 @@ class CQSStrategy(IStrategy):
                         relative_sl = last_candle['target1'] * 1.01
                     """
                     # imposto protezione se ha superato il 3,5% ma non e' ancora arrivato al target1
-                    if current_rate > 0.035:
+                    if current_profit > 0.04:
                         relative_sl = last_candle['buy_end'] * 1.004
 
                     # logging
