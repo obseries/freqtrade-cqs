@@ -350,7 +350,7 @@ class CQSStrategy(IStrategy):
                 # see: https://www.freqtrade.io/en/latest/strategy-customization/#common-mistakes-when-developing-strategies
 
                 # protezione se non e' riuscito a scaricare i dati
-                if dataframe.iloc[-1]:
+                if dataframe.size > 0:
                     last_candle = dataframe.iloc[-1].squeeze()
                     # imposto lo stop loss ufficiale
                     relative_sl = last_candle['stop_loss']
