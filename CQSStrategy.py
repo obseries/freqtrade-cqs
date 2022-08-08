@@ -225,6 +225,19 @@ class CQSStrategy(IStrategy):
         dataframe['stop_loss'] = float(cqstrade['stop_loss'])
 
         # Prendi esempi da https://raw.githubusercontent.com/freqtrade/freqtrade/develop/freqtrade/templates/sample_strategy.py
+        cqstrade['target_reach'] = 0
+        high = dataframe.iloc[-1]['high']
+        if high > float(cqstrade['target1']) and cqstrade['target_reach'] < 1:
+            cqstrade['target_reach'] = 1
+            self.save_cqs_trade()
+        if high > float(cqstrade['target2']) and cqstrade['target_reach'] < 2:
+            cqstrade['target_reach'] = 2
+            self.save_cqs_trade()
+        if high > float(cqstrade['target3']) and cqstrade['target_reach'] < 3:
+            cqstrade['target_reach'] = 3
+            self.save_cqs_trade()
+
+        dataframe['target_reach'] = cqstrade['target_reach']
 
         # first check if dataprovider is available
         if self.dp:
@@ -254,7 +267,7 @@ class CQSStrategy(IStrategy):
                         (dataframe['best_ask'] <= dataframe['buy_end']) &
                         (dataframe['best_ask'] >= dataframe['buy_start'])
                 ),
-                'enter_long'] = 1
+                ['enter_long', 'enter_tag']] = (1, cqstrade['id'])
 
         return dataframe
 
@@ -275,9 +288,24 @@ class CQSStrategy(IStrategy):
         if cqstrade != {}:
             dataframe.loc[
                 (
-                        dataframe['best_bid'] >= dataframe['target3']
+                    (dataframe['best_bid'] >= dataframe['target3']) |
+                    (dataframe['target_reach'] == 3)
                 ),
-                'exit_long'] = 1
+                ['exit_long', 'exit_tag']] = (1, 'target3')
+
+            dataframe.loc[
+                (
+                        (dataframe['best_bid'] <= (dataframe['target1']*1.005)) &
+                        (dataframe['target_reach'] == 2)
+                ),
+                ['exit_long', 'exit_tag']] = (1, 'target1')
+
+            dataframe.loc[
+                (
+                        (dataframe['best_bid'] <= (dataframe['buy_end']*1.005)) |
+                        (dataframe['target_reach'] == 1)
+                ),
+                ['exit_long', 'exit_tag']] = (1, 'breakeven')
 
         return dataframe
 
@@ -317,11 +345,13 @@ class CQSStrategy(IStrategy):
                 last_candle = dataframe.iloc[-1].squeeze()
                 # imposto lo stop loss ufficiale
                 relative_sl = last_candle['stop_loss']
+                """ è impostato nelle strategie di exit
                 # se ho superato il target1, imposto al break even
                 if current_rate > last_candle['target1']:
                     relative_sl = last_candle['buy_end'] * 1.01
                 if current_rate > last_candle['target2']:
                     relative_sl = last_candle['target1'] * 1.01
+                """
 
             if relative_sl is not None:
                 # print("custom_stoploss().relative_sl: {}".format(relative_sl))
