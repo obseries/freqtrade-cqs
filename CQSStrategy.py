@@ -518,22 +518,18 @@ class CQSStrategy(IStrategy):
         dataframe, _ = self.dp.get_analyzed_dataframe(pair=pair, timeframe=self.timeframe)
         current_candle = dataframe.iloc[-1].squeeze()
 
-        if self.config['stake_amount'] == 'unlimited':
-            # Use entire available wallet during favorable conditions when in compounding mode.
-            return max_stake
+        # Compound profits during favorable conditions instead of using a static stake.
+        custom_stake = self.wallets.get_total_stake_amount() / self.config['max_open_trades']
+        # minimal stake is for position adjustment partial sell
+        minimal_stake = min_stake * 3
+        
+        if custom_stake > minimal_stake:
+            return custom_stake
         else:
-            # Compound profits during favorable conditions instead of using a static stake.
-            custom_stake = self.wallets.get_total_stake_amount() / self.config['max_open_trades']
-            # minimal stake is for position adjustment partial sell
-            minimal_stake = min_stake * 3
-            
-            if custom_stake > minimal_stake:
-                return custom_stake
-            else:
-                return minimal_stake
+            return minimal_stake
 
         # Use default stake amount.
-        return proposed_stake
+        # return proposed_stake
     
     def save_cqs_trade(self):
         with open(self.cqs_json_file, 'w') as output_file:
