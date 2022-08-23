@@ -107,8 +107,9 @@ class CQSStrategy(IStrategy):
     def version(self) -> str:
         """
         Returns version of the strategy.
+        0.2 : aggiunto gestione stake minimo di almeno 3 volte il min_stake dell'exchange e partial_exit
         """
-        return "0.1"
+        return "0.2"
 
     def bot_start(self, **kwargs) -> None:
         """
@@ -413,8 +414,11 @@ class CQSStrategy(IStrategy):
 
         buy_start = float(cqstrade['buy_start'])
         buy_end = float(cqstrade['buy_end'])
+        target1 = float(cqstrade['target1'])
+        target2 = float(cqstrade['target2'])
 
         # massimo entrata dividendo in tre parti
+        # TODO generalizzare
         third_entry = ((buy_end - buy_start) / 3) + buy_start
         if buy_start < current_rate < third_entry and count_of_entries == 1:
             stake_amount = filled_entries[0].cost / 2
@@ -427,6 +431,11 @@ class CQSStrategy(IStrategy):
         #  ATTENZIONE
         #  al min_stake, si potrebbe fare che di default imposto uno stake che è almeno 3 volte il minimo utilizzando
         #  il metodo custom_stake_amount
+        if current_rate >= target1 and trade.nr_of_successful_exits == 0:
+            return -(trade.stake_amount / 3)
+
+        if current_rate >= target2 and trade.nr_of_successful_exits <= 1:
+            return -(trade.stake_amount / 3)
 
         return None
 
@@ -501,6 +510,31 @@ class CQSStrategy(IStrategy):
 
         return True
 
+    def custom_stake_amount(self, pair: str, current_time: datetime, current_rate: float,
+                            proposed_stake: float, min_stake: Optional[float], max_stake: float,
+                            leverage: float, entry_tag: Optional[str], side: str,
+                            **kwargs) -> float:
+
+        dataframe, _ = self.dp.get_analyzed_dataframe(pair=pair, timeframe=self.timeframe)
+        current_candle = dataframe.iloc[-1].squeeze()
+
+        if self.config['stake_amount'] == 'unlimited':
+            # Use entire available wallet during favorable conditions when in compounding mode.
+            return max_stake
+        else:
+            # Compound profits during favorable conditions instead of using a static stake.
+            custom_stake = self.wallets.get_total_stake_amount() / self.config['max_open_trades']
+            # minimal stake is for position adjustment partial sell
+            minimal_stake = min_stake * 3
+            
+            if custom_stake > minimal_stake:
+                return custom_stake
+            else:
+                return minimal_stake
+
+        # Use default stake amount.
+        return proposed_stake
+    
     def save_cqs_trade(self):
         with open(self.cqs_json_file, 'w') as output_file:
             json.dump(self.cqs_trades, output_file, indent=4)
