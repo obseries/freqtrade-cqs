@@ -230,15 +230,15 @@ class CQSStrategy(IStrategy):
             cqstrade['target_reach'] = 0
 
         high = dataframe.iloc[-1]['high']
-        if high > float(cqstrade['target1']) and cqstrade['target_reach'] < 1:
+        if high >= float(cqstrade['target1']) and cqstrade['target_reach'] < 1:
             cqstrade['target_reach'] = 1
             self.save_cqs_trade()
             self.logger("RAGGIUNTO target_reach: %s per %s", cqstrade['target_reach'], metadata['pair'])
-        if high > float(cqstrade['target2']) and cqstrade['target_reach'] < 2:
+        if high >= float(cqstrade['target2']) and cqstrade['target_reach'] < 2:
             cqstrade['target_reach'] = 2
             self.save_cqs_trade()
             self.logger("RAGGIUNTO target_reach: %s per %s", cqstrade['target_reach'], metadata['pair'])
-        if high > float(cqstrade['target3']) and cqstrade['target_reach'] < 3:
+        if high >= float(cqstrade['target3']) and cqstrade['target_reach'] < 3:
             cqstrade['target_reach'] = 3
             self.save_cqs_trade()
             self.logger("RAGGIUNTO target_reach: %s per %s", cqstrade['target_reach'], metadata['pair'])
@@ -295,21 +295,21 @@ class CQSStrategy(IStrategy):
             dataframe.loc[
                 (
                         (dataframe['best_bid'] >= dataframe['target3']) |
-                        (dataframe['target_reach'] == 3)
+                        (dataframe['target_reach'] >= 3)
                 ),
                 ['exit_long', 'exit_tag']] = (1, 'target3')
 
             dataframe.loc[
                 (
                         (dataframe['best_bid'] <= (dataframe['target1'] * 1.005)) &
-                        (dataframe['target_reach'] == 2)
+                        (dataframe['target_reach'] >= 2)
                 ),
                 ['exit_long', 'exit_tag']] = (1, 'target1')
 
             dataframe.loc[
                 (
                         (dataframe['best_bid'] <= (dataframe['buy_end'] * 1.005)) &
-                        (dataframe['target_reach'] == 1)
+                        (dataframe['target_reach'] >= 1)
                 ),
                 ['exit_long', 'exit_tag']] = (1, 'breakeven')
 
@@ -419,13 +419,12 @@ class CQSStrategy(IStrategy):
 
         # massimo entrata dividendo in tre parti
         # TODO generalizzare
-        third_entry = ((buy_end - buy_start) / 3) + buy_start
-        if buy_start < current_rate < third_entry and count_of_entries == 1:
-            stake_amount = filled_entries[0].cost / 2
-            if stake_amount < min_stake:
-                stake_amount = min_stake
-
-            return stake_amount
+        #third_entry = ((buy_end - buy_start) / 3) + buy_start
+        #if buy_start < current_rate < third_entry and count_of_entries == 1:
+        #    stake_amount = filled_entries[0].cost / 2
+        #    if stake_amount < min_stake:
+        #        stake_amount = min_stake
+        #    return stake_amount
 
         # TODO inserire le exit parziali impostando uno stake amount negativo al raggiungimento dei target
         #  ATTENZIONE
