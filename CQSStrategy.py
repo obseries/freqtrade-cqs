@@ -431,10 +431,12 @@ class CQSStrategy(IStrategy):
         #  al min_stake, si potrebbe fare che di default imposto uno stake che è almeno 3 volte il minimo utilizzando
         #  il metodo custom_stake_amount
         if current_rate >= target1 and trade.nr_of_successful_exits == 0:
-            return -(trade.stake_amount / 3)
+            #punto di piu' sul primo target (dovrei dividere per 3)
+            return -(trade.stake_amount / 2)
 
         if current_rate >= target2 and trade.nr_of_successful_exits <= 1:
-            return -(trade.stake_amount / 3)
+            #lo stake_amount e' il rimanente, quindi lo suddivido tra i due ultimi target
+            return -(trade.stake_amount / 2)
 
         return None
 
