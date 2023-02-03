@@ -172,7 +172,7 @@ class CQSStrategy(IStrategy):
                         has_to_add = True
                         # ora verifico di non avere ancora questo trade in lista
                         for trade in self.cqs_trades:
-                            if trade['id'] == signal['id']:
+                            if trade['id'] == signal['id'] or trade['pair'] == pair:
                                 has_to_add = False
 
                 if has_to_add:
