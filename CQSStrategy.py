@@ -191,11 +191,9 @@ class CQSStrategy(IStrategy):
                         if signal['coin'] == trade['coin']:
                             not_in_signal = False;
                     if not_in_signal:
-                        self.remove_cqs_trade_by_pair(self, trade['pair'])
+                        self.remove_cqs_trade_by_pair(trade['pair']);
 
-        self.cqs_current_loop_number = self.cqs_current_loop_number + 1
-
-        ## TODO cancellare i trade che dopo 15 minuti non sono stati aperti
+        self.cqs_current_loop_number = self.cqs_current_loop_number + 1;
 
     def informative_pairs(self):
         """
