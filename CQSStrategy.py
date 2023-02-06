@@ -108,8 +108,9 @@ class CQSStrategy(IStrategy):
         """
         Returns version of the strategy.
         0.2 : aggiunto gestione stake minimo di almeno 3 volte il min_stake dell'exchange e partial_exit
+        0.3 : rimosso segnale per cui non e' entrato in buy e non e' più presente nell'api
         """
-        return "0.2"
+        return "0.3"
 
     def bot_start(self, **kwargs) -> None:
         """
@@ -165,7 +166,7 @@ class CQSStrategy(IStrategy):
 
                 pair = signal['coin'] + '/' + currency
                 # verifico che sia nella lista delle pair trattate
-                has_to_add = False
+                has_to_add = False;
                 for available_pair in self.dp.available_pairs:
                     if pair == available_pair[0]:
                         # e' nella lista dei pair trattati
@@ -180,6 +181,17 @@ class CQSStrategy(IStrategy):
                     self.cqs_trades.append(signal)
 
             self.save_cqs_trade()
+
+            # rimuovere i segnali non più presenti nelle api per cui non è entrato in buy
+            for trade in self.cqs_trades:
+                not_in = self.wallets.get_total(trade['coin']) <= 0;
+                not_in_signal = True;
+                if not_in:
+                    for signal in data['signals']:
+                        if signal['coin'] == trade['coin']:
+                            not_in_signal = False;
+                    if not_in_signal:
+                        self.remove_cqs_trade_by_pair(self, trade['pair'])
 
         self.cqs_current_loop_number = self.cqs_current_loop_number + 1
 
