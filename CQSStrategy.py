@@ -17,8 +17,10 @@ from freqtrade.strategy import (BooleanParameter, CategoricalParameter, DecimalP
 class CQSStrategy(IStrategy):
     logger = logging.getLogger(__name__)
 
-    cqs_multiplier_loop = 8
-    cqs_current_loop_number = 8
+#    cqs_multiplier_loop = 8
+#    cqs_current_loop_number = 8
+    cqs_multiplier_loop = 1
+    cqs_current_loop_number = 1
     cqs_json_file = ''
 
     cqs_trades = []
