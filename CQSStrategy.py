@@ -143,7 +143,10 @@ class CQSStrategy(IStrategy):
         :param **kwargs: Ensure to keep this here so updates to this won't break your strategy.
         """
         if self.config['runmode'].value in ('live', 'dry_run'):
-            self.logger.debug("called bot_loop_start")
+            self.logger.info("called bot_loop_start [process_throttle_secs: %s , cqs_current_loop_number: %s , cqs_multiplier_loop: %s]",
+                             self.config['internals']['process_throttle_secs'],
+                             self.cqs_current_loop_number,
+                             self.cqs_multiplier_loop);
 
         # call remote service every
         if self.cqs_current_loop_number % self.cqs_multiplier_loop == 0:
@@ -243,15 +246,15 @@ class CQSStrategy(IStrategy):
         if high >= float(cqstrade['target1']) and cqstrade['target_reach'] < 1:
             cqstrade['target_reach'] = 1
             self.save_cqs_trade()
-            self.logger("RAGGIUNTO target_reach: %s per %s", cqstrade['target_reach'], metadata['pair'])
+            self.logger.info("RAGGIUNTO target_reach: %s per %s", cqstrade['target_reach'], metadata['pair'])
         if high >= float(cqstrade['target2']) and cqstrade['target_reach'] < 2:
             cqstrade['target_reach'] = 2
             self.save_cqs_trade()
-            self.logger("RAGGIUNTO target_reach: %s per %s", cqstrade['target_reach'], metadata['pair'])
+            self.logger.info("RAGGIUNTO target_reach: %s per %s", cqstrade['target_reach'], metadata['pair'])
         if high >= float(cqstrade['target3']) and cqstrade['target_reach'] < 3:
             cqstrade['target_reach'] = 3
             self.save_cqs_trade()
-            self.logger("RAGGIUNTO target_reach: %s per %s", cqstrade['target_reach'], metadata['pair'])
+            self.logger.info("RAGGIUNTO target_reach: %s per %s", cqstrade['target_reach'], metadata['pair'])
 
         dataframe['target_reach'] = cqstrade['target_reach']
 
